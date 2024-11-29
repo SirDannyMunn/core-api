@@ -3,6 +3,7 @@
 namespace Fleetbase\Listeners;
 
 use Fleetbase\Events\ResourceLifecycleEvent;
+use Fleetbase\Models\ApiCredential;
 use Fleetbase\Models\ApiEvent;
 use Fleetbase\Models\User;
 use Fleetbase\Models\WebhookEndpoint;
@@ -12,6 +13,9 @@ use Fleetbase\Webhook\WebhookCall;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class SendResourceLifecycleWebhook implements ShouldQueue
 {
@@ -34,18 +38,35 @@ class SendResourceLifecycleWebhook implements ShouldQueue
         $apiEnvironment  = session()->get('api_environment', $event->apiEnvironment ?? 'live');
         $isSandbox       = session()->get('is_sandbox', $event->isSandbox);
 
+        // Prepare event
+        $eventData = [
+            'company_uuid'        => $companyId,
+            'event'               => $event->broadcastAs(),
+            'source'              => $apiCredentialId ? 'api' : 'console',
+            'data'                => $event->getEventData(),
+            'method'              => $event->requestMethod,
+            'description'         => $this->getHumanReadableEventDescription($event),
+        ];
+
+        // Get api credential from session
+        $apiCredential = session('api_credential');
+
+        // Validate api credential, if not uuid then it could be internal
+        if ($apiCredential && Str::isUuid($apiCredential) && ApiCredential::where('uuid', session('api_credential'))->exists()) {
+            $eventData['api_credential_uuid'] = $apiCredential;
+        }
+
+        // Check if it was a personal access token which made the request
+        if ($apiCredential && is_numeric($apiCredential) && PersonalAccessToken::where('id', $apiCredential)->exists()) {
+            $eventData['access_token_id'] = (int) $apiCredential;
+        }
+
         try {
             // log the api event
-            $apiEvent = ApiEvent::create([
-                'company_uuid'        => $companyId,
-                'api_credential_uuid' => $apiCredentialId,
-                'event'               => $event->broadcastAs(),
-                'source'              => $apiCredentialId ? 'api' : 'console',
-                'data'                => $event->getEventData(),
-                'method'              => $event->requestMethod,
-                'description'         => $this->getHumanReadableEventDescription($event),
-            ]);
-        } catch (QueryException $e) {
+            $apiEvent = ApiEvent::create($eventData);
+        } catch (\Exception|QueryException $e) {
+            Log::error($e->getMessage());
+
             return;
         }
 
@@ -72,7 +93,8 @@ class SendResourceLifecycleWebhook implements ShouldQueue
                     ->meta([
                         'is_sandbox'          => $isSandbox,
                         'api_key'             => $apiKey,
-                        'api_credential_uuid' => $apiCredentialId,
+                        'api_credential_uuid' => data_get($apiEvent, 'api_credential_uuid'),
+                        'access_token_id'     => data_get($apiEvent, 'access_token_id'),
                         'company_uuid'        => $webhook->company_uuid,
                         'api_event_uuid'      => $apiEvent->uuid,
                         'webhook_uuid'        => $webhook->uuid,
@@ -82,20 +104,22 @@ class SendResourceLifecycleWebhook implements ShouldQueue
                     ->payload($event->data)
                     ->useSecret($apiSecret)
                     ->dispatch();
-            } catch (\Aws\Sqs\Exception\SqsException $exception) {
+            } catch (\Exception|\Aws\Sqs\Exception\SqsException $exception) {
                 // get webhook attempt request/response interfaces
                 $response = $exception->getResponse();
                 $request  = $exception->getRequest();
 
-                // log webhook error in logs
-                WebhookRequestLog::on($connection)->create([
+                // Log error
+                Log::error($exception->getMessage());
+
+                // Prepare log data
+                $webhookRequestLogData = [
                     'company_uuid'        => $webhook->company_uuid,
                     'webhook_uuid'        => $webhook->uuid,
-                    'api_credential_uuid' => $apiCredentialId,
                     'api_event_uuid'      => $apiEvent->uuid,
                     'method'              => $request->getMethod(),
                     'status_code'         => $exception->getStatusCode(),
-                    'reason_phrase'       => $response->getReasonPhrase() ?? $exception->getMessage(),
+                    'reason_phrase'       => $response->getReasonPhrase(),
                     'duration'            => $durationStart->diffInSeconds(now()),
                     'url'                 => $request->getUri(),
                     'attempt'             => 1,
@@ -103,10 +127,24 @@ class SendResourceLifecycleWebhook implements ShouldQueue
                     'status'              => 'failed',
                     'headers'             => $request->getHeaders(),
                     'meta'                => [
-                        'exception' => get_class($exception),
+                        'exception'         => get_class($exception),
+                        'exception_message' => $exception->getMessage(),
                     ],
                     'sent_at' => $durationStart,
-                ]);
+                ];
+
+                // Validate api credential, if not uuid then it could be internal
+                if (isset($eventData['api_credential_uuid'])) {
+                    $webhookRequestLogData['api_credential_uuid'] = $eventData['api_credential_uuid'];
+                }
+
+                // Check if it was a personal access token which made the request
+                if (isset($eventData['access_token_id'])) {
+                    $webhookRequestLogData['access_token_id'] = $eventData['access_token_id'];
+                }
+
+                // log webhook error in logs
+                WebhookRequestLog::on($connection)->create($webhookRequestLogData);
             }
         }
     }

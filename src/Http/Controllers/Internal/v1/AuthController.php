@@ -4,6 +4,7 @@ namespace Fleetbase\Http\Controllers\Internal\v1;
 
 use Fleetbase\Exceptions\InvalidVerificationCodeException;
 use Fleetbase\Http\Controllers\Controller;
+use Fleetbase\Http\Requests\AdminRequest;
 use Fleetbase\Http\Requests\Internal\ResetPasswordRequest;
 use Fleetbase\Http\Requests\Internal\UserForgotPasswordRequest;
 use Fleetbase\Http\Requests\JoinOrganizationRequest;
@@ -11,6 +12,7 @@ use Fleetbase\Http\Requests\LoginRequest;
 use Fleetbase\Http\Requests\SignUpRequest;
 use Fleetbase\Http\Requests\SwitchOrganizationRequest;
 use Fleetbase\Http\Resources\Organization;
+use Fleetbase\Mail\UserCredentialsMail;
 use Fleetbase\Models\Company;
 use Fleetbase\Models\CompanyUser;
 use Fleetbase\Models\Invite;
@@ -23,6 +25,7 @@ use Fleetbase\Support\Utils;
 use Fleetbase\Twilio\Support\Laravel\Facade as Twilio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -102,7 +105,12 @@ class AuthController extends Controller
             return response()->error('Session has expired.', 401, ['restore' => false]);
         }
 
-        return response()->json(['token' => $request->bearerToken(), 'user' => $user->uuid, 'verified' => $user->isVerified(), 'type' => $user->getType()]);
+        $session = ['token' => $request->bearerToken(), 'user' => $user->uuid, 'verified' => $user->isVerified(), 'type' => $user->getType()];
+        if (session()->has('impersonator')) {
+            $session['impersonator'] = session()->get('impersonator');
+        }
+
+        return response()->json($session);
     }
 
     /**
@@ -624,5 +632,119 @@ class AuthController extends Controller
         }
 
         return response()->json(array_unique($services));
+    }
+
+    /**
+     * Change a user password.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function changeUserPassword(Request $request)
+    {
+        $user = Auth::getUserFromSession($request);
+        if (!$user) {
+            return response()->error('Not authorized to change user password.', 401);
+        }
+
+        $canChangePassword = $user->isAdmin() || $user->hasRole('Administrator') || $user->hasPermissionTo('iam change-password-for user');
+        if (!$canChangePassword) {
+            return response()->error('Not authorized to change user password.', 401);
+        }
+
+        // Get request input
+        $userId          = $request->input('user');
+        $password        = $request->input('password');
+        $confirmPassword = $request->input('password_confirmation');
+        $sendCredentials = $request->boolean('send_credentials');
+
+        if (!$userId) {
+            return response()->error('No user specified to change password for.');
+        }
+
+        if ($password !== $confirmPassword) {
+            return response()->error('Passwords do not match.');
+        }
+
+        $targetUser = User::where('uuid', $userId)->whereHas('anyCompanyUser', function ($query) {
+            $query->where('company_uuid', session('company'));
+        })->first();
+        if (!$targetUser) {
+            return response()->error('User not found to change password for.');
+        }
+
+        // Change password
+        $targetUser->changePassword($password);
+
+        // Send credentials to customer if opted
+        if ($sendCredentials) {
+            Mail::to($targetUser)->send(new UserCredentialsMail($password, $targetUser));
+        }
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Allows system admin to impersonate a user.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function impersonate(AdminRequest $request)
+    {
+        $currentUser = Auth::getUserFromSession($request);
+        if ($currentUser->isNotAdmin()) {
+            return response()->error('Not authorized to impersonate users.');
+        }
+
+        $targetUserId = $request->input('user');
+        if (!$targetUserId) {
+            return response()->error('Not target user selected to impersonate.');
+        }
+
+        $targetUser = User::where('uuid', $targetUserId)->first();
+        if (!$targetUser) {
+            return response()->error('The selected user to impersonate was not found.');
+        }
+
+        try {
+            Auth::setSession($targetUser);
+            session()->put('impersonator', $currentUser->uuid);
+            $token = $targetUser->createToken($targetUser->uuid);
+        } catch (\Exception $e) {
+            return response()->error($e->getMessage());
+        }
+
+        return response()->json(['status' => 'ok', 'token' => $token->plainTextToken]);
+    }
+
+    /**
+     * Ends the impersonation session.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function endImpersonation()
+    {
+        $impersonatorId = session()->get('impersonator');
+        if (!$impersonatorId) {
+            return response()->error('Not impersonator session found.');
+        }
+
+        $impersonator = User::where('uuid', $impersonatorId)->first();
+        if (!$impersonator) {
+            return response()->error('The impersonator user was not found.');
+        }
+
+        if ($impersonator->isNotAdmin()) {
+            return response()->error('The impersonator does not have permissions. Logout.');
+        }
+
+        try {
+            Auth::setSession($impersonator);
+            session()->remove('impersonator');
+            $token = $impersonator->createToken($impersonator->uuid);
+        } catch (\Exception $e) {
+            return response()->error($e->getMessage());
+        }
+
+        return response()->json(['status' => 'ok', 'token' => $token->plainTextToken]);
     }
 }
