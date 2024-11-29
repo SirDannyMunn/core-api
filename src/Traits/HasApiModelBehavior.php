@@ -10,6 +10,7 @@ use Fleetbase\Support\Utils;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -111,12 +112,17 @@ trait HasApiModelBehavior
          * @var \Illuminate\Database\Query\Builder $builder
          */
         $builder = $this->searchBuilder($request, $columns);
-
+    
         if (intval($limit) > 0) {
             $builder->limit($limit);
         }
-
-        // if queryCallback is supplied
+    
+        // Dynamically include related models based on the 'with' parameter
+        if ($request->has('with')) {
+            $relations = explode(',', $request->input('with'));
+            $builder->with($relations);
+        }
+    
         if (is_callable($queryCallback)) {
             $queryCallback($builder, $request);
         }
@@ -138,7 +144,7 @@ trait HasApiModelBehavior
         // mutate if mutation causing params present
         return static::mutateModelWithRequest($request, $result);
     }
-
+    
     /**
      * Static alias for queryFromRequest().
      *
