@@ -27,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -602,13 +603,17 @@ class AuthController extends Controller
      */
     public function createOrganization(Request $request)
     {
+        
         $user    = Auth::getUserFromSession($request);
+        
         $input   = array_merge($request->only(['name', 'description', 'phone', 'email', 'currency', 'country', 'timezone']), ['owner_uuid' => $user->uuid]);
-
+        
         try {
             $company = Company::create($input);
             $company->assignUser($user, 'Administrator');
         } catch (\Throwable $e) {
+            // log stack strace
+            Log::error($e);
             return response()->error($e->getMessage());
         }
 
