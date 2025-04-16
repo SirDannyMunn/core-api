@@ -17,30 +17,30 @@ if (env('APP_DEBUG') === true) {
     Route::get('test', 'Fleetbase\Http\Controllers\Controller@test');
 }
 
-Route::prefix('crossapp')->namespace('Fleetbase\Http\Controllers\Internal\v1')->middleware(['laundryos.crossapp.key', Fleetbase\FleetOps\Http\Middleware\TransformLocationMiddleware::class])
-->group(function ($router) {
-    $router->group([
-        // 'namespace' => 'Fleetbase\Http\Controllers\Internal\v1',
-        'middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]
-    ], function () use ($router) {
-        $router->post('switch-organization', 'AuthController@switchOrganization');
-        $router->post('join-organization', 'AuthController@joinOrganization');
-        $router->post('create-organization', 'AuthController@createOrganization');
-        $router->get('session', 'AuthController@session');
-        $router->get('organizations', 'AuthController@getUserOrganizations');
-        $router->get('services', 'AuthController@services');
+// Route::prefix('crossapp')->namespace('Fleetbase\Http\Controllers\Internal\v1')->middleware(['laundryos.crossapp.key', Fleetbase\FleetOps\Http\Middleware\TransformLocationMiddleware::class])
+// ->group(function ($router) {
+//     $router->group([
+//         // 'namespace' => 'Fleetbase\Http\Controllers\Internal\v1',
+//         'middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]
+//     ], function () use ($router) {
+//         $router->post('switch-organization', 'AuthController@switchOrganization');
+//         $router->post('join-organization', 'AuthController@joinOrganization');
+//         $router->post('create-organization', 'AuthController@createOrganization');
+//         $router->get('session', 'AuthController@session');
+//         $router->get('organizations', 'AuthController@getUserOrganizations');
+//         $router->get('services', 'AuthController@services');
 
-    });
+//     });
 
-    $router->fleetbaseRoutes(
-        'api-credentials',
-        function ($router, $controller) {
-            $router->delete('bulk-delete', $controller('bulkDelete'));
-            $router->patch('roll/{id}', $controller('roll'));
-            $router->get('export', $controller('export'));
-        }
-    );
-});
+//     $router->fleetbaseRoutes(
+//         'api-credentials',
+//         function ($router, $controller) {
+//             $router->delete('bulk-delete', $controller('bulkDelete'));
+//             $router->patch('roll/{id}', $controller('roll'));
+//             $router->get('export', $controller('export'));
+//         }
+//     );
+// });
 
 Route::prefix(config('fleetbase.api.routing.prefix', '/'))->namespace('Fleetbase\Http\Controllers')->group(
     function ($router) {
