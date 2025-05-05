@@ -3,6 +3,7 @@
 namespace Fleetbase\Http\Middleware;
 
 use Fleetbase\Models\ApiCredential;
+use Fleetbase\Models\Company;
 use Fleetbase\Support\Auth;
 use Fleetbase\Support\Utils;
 use Illuminate\Http\Request;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
-class AuthenticateOnceWithBasicAuth
+class CompositeAuthBasic
 {
     /**
      * Handle an incoming request.
@@ -19,6 +20,39 @@ class AuthenticateOnceWithBasicAuth
      */
     public function handle($request, \Closure $next)
     {
+
+        // Check for API key in header
+        $apiKey = $request->header('X-API-Key');
+
+        if ($apiKey) {
+
+            if ($apiKey === config('app.api_auth_key')) {
+
+                // Mark the request as authenticated via API key
+                $request->attributes->set('authenticated_via_api_key', true);
+
+                $userUuid = $request->header('X-API-User');
+                $companyUuid = $request->header('X-API-Company');
+
+                if ($userUuid && $companyUuid) {
+                    // Use provided user and company UUIDs
+                    session(['user' => $userUuid]);
+                    session(['company' => $companyUuid]);
+                } else {
+                    // Fall back to defaults
+                    $user = Auth::loginUsingId(1);
+                    $company = Company::first();
+
+                    session(['user' => $user->uuid]);
+                    session(['company' => $company->uuid]);
+                }
+
+                return $next($request);
+            }
+
+            // Invalid API key
+            return response()->error('Invalid API key', 403);
+        }
 
         $authenticationResponse = $this->authenticatedWithBasic($request);
 
@@ -46,13 +80,13 @@ class AuthenticateOnceWithBasicAuth
             'headers' => $request->headers->all(),
         ]);
 
-        // if ($request->header('X-API-KEY') && $request->header('X-API-KEY') == config('app.api_auth_key') && $request->header('X-API-USER') && $request->header('X-API-COMPANY')) {
-        //     $token = $request->header('X-API-KEY');
-        //     $user = $request->header('X-API-USER');
-        //     $company = $request->header('X-API-COMPANY');
-        // } else {
-        //     $token = $request->bearerToken();
-        // }
+        if ($request->header('X-API-KEY') && $request->header('X-API-KEY') == config('app.api_auth_key') && $request->header('X-API-USER') && $request->header('X-API-COMPANY')) {
+            $token = $request->header('X-API-KEY');
+            $user = $request->header('X-API-USER');
+            $company = $request->header('X-API-COMPANY');
+        } else {
+            $token = $request->bearerToken();
+        }
 
 
         // get secret key

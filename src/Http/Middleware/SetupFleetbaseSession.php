@@ -3,6 +3,7 @@
 namespace Fleetbase\Http\Middleware;
 
 use Fleetbase\Support\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class SetupFleetbaseSession
@@ -14,6 +15,11 @@ class SetupFleetbaseSession
      */
     public function handle($request, \Closure $next)
     {
+        // Log::info('SetupFleetbaseSession', [
+        //     'request' => $request->all(),
+        //     'headers' => $request->headers->all(),
+        // ]);
+
         $user = $request->user();
         Auth::setSession($user);
         Auth::setSandboxSession($request);

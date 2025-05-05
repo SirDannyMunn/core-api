@@ -17,31 +17,6 @@ if (env('APP_DEBUG') === true) {
     Route::get('test', 'Fleetbase\Http\Controllers\Controller@test');
 }
 
-// Route::prefix('crossapp')->namespace('Fleetbase\Http\Controllers\Internal\v1')->middleware(['laundryos.crossapp.key', Fleetbase\FleetOps\Http\Middleware\TransformLocationMiddleware::class])
-// ->group(function ($router) {
-//     $router->group([
-//         // 'namespace' => 'Fleetbase\Http\Controllers\Internal\v1',
-//         'middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]
-//     ], function () use ($router) {
-//         $router->post('switch-organization', 'AuthController@switchOrganization');
-//         $router->post('join-organization', 'AuthController@joinOrganization');
-//         $router->post('create-organization', 'AuthController@createOrganization');
-//         $router->get('session', 'AuthController@session');
-//         $router->get('organizations', 'AuthController@getUserOrganizations');
-//         $router->get('services', 'AuthController@services');
-
-//     });
-
-//     $router->fleetbaseRoutes(
-//         'api-credentials',
-//         function ($router, $controller) {
-//             $router->delete('bulk-delete', $controller('bulkDelete'));
-//             $router->patch('roll/{id}', $controller('roll'));
-//             $router->get('export', $controller('export'));
-//         }
-//     );
-// });
-
 Route::prefix(config('fleetbase.api.routing.prefix', '/'))->namespace('Fleetbase\Http\Controllers')->group(
     function ($router) {
         $router->get('/', 'Controller@hello');
@@ -181,44 +156,60 @@ Route::prefix(config('fleetbase.api.routing.prefix', '/'))->namespace('Fleetbase
                                         $router->get('export', $controller('export'));
                                     }
                                 );
-                                $router->fleetbaseRoutes('metrics', null, ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]], function ($router, $controller) {
-                                    $router->get('iam', $controller('iam'));
-                                    $router->get('iam-dashboard', $controller('iamDashboard'));
-                                }
+                                $router->fleetbaseRoutes(
+                                    'metrics',
+                                    null,
+                                    ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]],
+                                    function ($router, $controller) {
+                                        $router->get('iam', $controller('iam'));
+                                        $router->get('iam-dashboard', $controller('iamDashboard'));
+                                    }
                                 );
-                                $router->fleetbaseRoutes('settings', null, ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]], function ($router, $controller) {
-                                    $router->get('overview', $controller('adminOverview'));
-                                    $router->get('filesystem-config', $controller('getFilesystemConfig'));
-                                    $router->post('filesystem-config', $controller('saveFilesystemConfig'));
-                                    $router->post('test-filesystem-config', $controller('testFilesystemConfig'));
-                                    $router->get('mail-config', $controller('getMailConfig'));
-                                    $router->post('mail-config', $controller('saveMailConfig'));
-                                    $router->post('test-mail-config', $controller('testMailConfig'));
-                                    $router->get('queue-config', $controller('getQueueConfig'));
-                                    $router->post('queue-config', $controller('saveQueueConfig'));
-                                    $router->post('test-queue-config', $controller('testQueueConfig'));
-                                    $router->get('services-config', $controller('getServicesConfig'));
-                                    $router->post('services-config', $controller('saveServicesConfig'));
-                                    $router->post('test-twilio-config', $controller('testTwilioConfig'));
-                                    $router->post('test-sentry-config', $controller('testSentryConfig'));
-                                    $router->post('branding', $controller('saveBrandingSettings'));
-                                    $router->put('branding', $controller('saveBrandingSettings'));
-                                    $router->post('test-socket', $controller('testSocketcluster'));
-                                    $router->get('notification-channels-config', $controller('getNotificationChannelsConfig'));
-                                    $router->post('notification-channels-config', $controller('saveNotificationChannelsConfig'));
-                                    $router->post('test-notification-channels-config', $controller('testNotificationChannelsConfig'));
-                                }
+                                $router->fleetbaseRoutes(
+                                    'settings',
+                                    null,
+                                    ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]],
+                                    function ($router, $controller) {
+                                        $router->get('overview', $controller('adminOverview'));
+                                        $router->get('filesystem-config', $controller('getFilesystemConfig'));
+                                        $router->post('filesystem-config', $controller('saveFilesystemConfig'));
+                                        $router->post('test-filesystem-config', $controller('testFilesystemConfig'));
+                                        $router->get('mail-config', $controller('getMailConfig'));
+                                        $router->post('mail-config', $controller('saveMailConfig'));
+                                        $router->post('test-mail-config', $controller('testMailConfig'));
+                                        $router->get('queue-config', $controller('getQueueConfig'));
+                                        $router->post('queue-config', $controller('saveQueueConfig'));
+                                        $router->post('test-queue-config', $controller('testQueueConfig'));
+                                        $router->get('services-config', $controller('getServicesConfig'));
+                                        $router->post('services-config', $controller('saveServicesConfig'));
+                                        $router->post('test-twilio-config', $controller('testTwilioConfig'));
+                                        $router->post('test-sentry-config', $controller('testSentryConfig'));
+                                        $router->post('branding', $controller('saveBrandingSettings'));
+                                        $router->put('branding', $controller('saveBrandingSettings'));
+                                        $router->post('test-socket', $controller('testSocketcluster'));
+                                        $router->get('notification-channels-config', $controller('getNotificationChannelsConfig'));
+                                        $router->post('notification-channels-config', $controller('saveNotificationChannelsConfig'));
+                                        $router->post('test-notification-channels-config', $controller('testNotificationChannelsConfig'));
+                                    }
                                 );
-                                $router->fleetbaseRoutes('schedule-monitor', null, ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]], function ($router, $controller) {
-                                    $router->get('tasks', $controller('tasks'));
-                                    $router->get('{id}/logs', $controller('logs'));
-                                }
+                                $router->fleetbaseRoutes(
+                                    'schedule-monitor',
+                                    null,
+                                    ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]],
+                                    function ($router, $controller) {
+                                        $router->get('tasks', $controller('tasks'));
+                                        $router->get('{id}/logs', $controller('logs'));
+                                    }
                                 );
-                                $router->fleetbaseRoutes('two-fa', null, ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]], function ($router, $controller) {
-                                    $router->post('config', $controller('saveSystemConfig'));
-                                    $router->get('config', $controller('getSystemConfig'));
-                                    $router->get('enforce', $controller('shouldEnforce'));
-                                }
+                                $router->fleetbaseRoutes(
+                                    'two-fa',
+                                    null,
+                                    ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]],
+                                    function ($router, $controller) {
+                                        $router->post('config', $controller('saveSystemConfig'));
+                                        $router->get('config', $controller('getSystemConfig'));
+                                        $router->get('enforce', $controller('shouldEnforce'));
+                                    }
                                 );
                                 $router->fleetbaseRoutes('api-events');
                                 $router->fleetbaseRoutes('api-request-logs');
@@ -240,23 +231,27 @@ Route::prefix(config('fleetbase.api.routing.prefix', '/'))->namespace('Fleetbase
                                     $router->match(['get', 'post'], 'export', $controller('export'));
                                     $router->get('{id}/users', $controller('users'));
                                 });
-                                $router->fleetbaseRoutes('users', null, ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]], function ($router, $controller) {
-                                    $router->get('me', $controller('current'));
-                                    $router->match(['get', 'post'], 'export', $controller('export'));
-                                    $router->patch('deactivate/{id}', $controller('deactivate'));
-                                    $router->patch('activate/{id}', $controller('activate'));
-                                    $router->patch('verify/{id}', $controller('verify'));
-                                    $router->delete('remove-from-company/{id}', $controller('removeFromCompany'));
-                                    $router->delete('bulk-delete', $controller('bulkDelete'));
-                                    $router->post('resend-invite', $controller('resendInvitation'));
-                                    $router->post('set-password', $controller('setCurrentUserPassword'));
-                                    $router->post('validate-password', $controller('validatePassword'));
-                                    $router->post('change-password', $controller('changeUserPassword'));
-                                    $router->post('two-fa', $controller('saveTwoFactorSettings'));
-                                    $router->get('two-fa', $controller('getTwoFactorSettings'));
-                                    $router->post('locale', $controller('setUserLocale'));
-                                    $router->get('locale', $controller('getUserLocale'));
-                                }
+                                $router->fleetbaseRoutes(
+                                    'users',
+                                    null,
+                                    ['middleware' => [Spatie\ResponseCache\Middlewares\DoNotCacheResponse::class]],
+                                    function ($router, $controller) {
+                                        $router->get('me', $controller('current'));
+                                        $router->match(['get', 'post'], 'export', $controller('export'));
+                                        $router->patch('deactivate/{id}', $controller('deactivate'));
+                                        $router->patch('activate/{id}', $controller('activate'));
+                                        $router->patch('verify/{id}', $controller('verify'));
+                                        $router->delete('remove-from-company/{id}', $controller('removeFromCompany'));
+                                        $router->delete('bulk-delete', $controller('bulkDelete'));
+                                        $router->post('resend-invite', $controller('resendInvitation'));
+                                        $router->post('set-password', $controller('setCurrentUserPassword'));
+                                        $router->post('validate-password', $controller('validatePassword'));
+                                        $router->post('change-password', $controller('changeUserPassword'));
+                                        $router->post('two-fa', $controller('saveTwoFactorSettings'));
+                                        $router->get('two-fa', $controller('getTwoFactorSettings'));
+                                        $router->post('locale', $controller('setUserLocale'));
+                                        $router->get('locale', $controller('getUserLocale'));
+                                    }
                                 );
                                 $router->fleetbaseRoutes('user-devices');
                                 $router->fleetbaseRoutes('groups');

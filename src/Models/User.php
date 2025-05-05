@@ -4,6 +4,7 @@ namespace Fleetbase\Models;
 
 use Fleetbase\Casts\Json;
 use Fleetbase\Exceptions\InvalidVerificationCodeException;
+use Fleetbase\FleetOps\Models\Driver;
 use Fleetbase\Notifications\UserCreated;
 use Fleetbase\Notifications\UserInvited;
 use Fleetbase\Support\NotificationRegistry;
@@ -1349,5 +1350,10 @@ class User extends Authenticatable
         }
 
         return null;
+    }
+
+    public function driver()
+    {
+        return $this->hasOne(Driver::class, 'user_uuid', 'uuid');
     }
 }

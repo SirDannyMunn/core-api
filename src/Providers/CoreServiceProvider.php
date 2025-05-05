@@ -39,7 +39,9 @@ class CoreServiceProvider extends ServiceProvider
         'fleetbase.protected' => [
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
+            // \App\Http\Middleware\CompositeAuth::class,
             'auth:sanctum',
+            \Fleetbase\Http\Middleware\LogRequestMiddleware::class,
             \Fleetbase\Http\Middleware\SetupFleetbaseSession::class,
             \Fleetbase\Http\Middleware\AuthorizationGuard::class,
             \Fleetbase\Http\Middleware\TrackPresence::class,
@@ -49,7 +51,9 @@ class CoreServiceProvider extends ServiceProvider
         'fleetbase.api' => [
             'throttle:80,1',
             \Illuminate\Session\Middleware\StartSession::class,
+            // \App\Http\Middleware\CompositeAuth::class,
             \Fleetbase\Http\Middleware\AuthenticateOnceWithBasicAuth::class,
+            // \Fleetbase\Http\Middleware\CompositeAuthBasic::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \Fleetbase\Http\Middleware\LogApiRequests::class,
             \Spatie\ResponseCache\Middlewares\CacheResponse::class,
